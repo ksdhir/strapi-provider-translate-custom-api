@@ -9,14 +9,7 @@ module.exports = {
   provider: "custom-api",
   name: "Custom API Translation Provider",
 
-  /**
-   * @param {object} providerOptions all config values in the providerOptions property
-   * @param {object} pluginOptions all config values from the plugin
-   */
-
   init(providerOptions = {}, pluginConfig = {}) {
-    // Do some setup here
-    // todo add and use api key in future
     const { apiURL, apiKey, translationProvider } = providerOptions;
 
     return {
@@ -26,28 +19,33 @@ module.exports = {
        *  sourceLocale: string,
        *  targetLocale: string,
        *  priority: number,
-       *  format?: 'plain'|'markdown'|'html'
+       *  format?: 'plain'|'markdown'|'html'|'jsonb'
        * }} options all translate options
-       * @returns {string[]} the input text(s) translated
-       *
+       * @returns {string[]|object[]} the input text(s) translated
        */
-
       async translate(options) {
-        // Implement translation
-
         try {
-          let { sourceLocale, targetLocale } = options;
+          let { sourceLocale, targetLocale, format } = options;
           let text = options.text;
 
-          // validation
           if (!text) {
             return [];
           }
+
+          const formatService = strapi.plugin('translate').service('format');
+          let isBlock = false;
+
+          // If the input is a block (jsonb), convert it to HTML for translation
+          if (Array.isArray(text) && format === 'jsonb') {
+            text = await formatService.blockToHtml(text);
+            isBlock = true;
+          }
+
+          // Ensure text is an array for batch translation
           if (typeof text === "string") {
             text = [text];
           }
 
-          // required fields
           if (!sourceLocale || !targetLocale) {
             throw new Error("source and target locale must be defined");
           }
@@ -56,7 +54,7 @@ module.exports = {
           const fallbacks = fallbackLanguages[translationProvider];
           if (fallbacks) {
             const fallback = fallbacks.find(
-              (item) => item.source === targetLocale
+                (item) => item.source === targetLocale
             );
             if (fallback) {
               targetLocale = fallback.fallback;
@@ -79,16 +77,24 @@ module.exports = {
           });
 
           // execute all promises
-          const translatedTexts = await Promise.all(translationPromises);
+          let translatedTexts = await Promise.all(translationPromises);
+          // If we translated a block, convert the translated HTML back to blocks
+          if (isBlock) {
+
+            let blocks = await formatService.htmlToBlock(translatedTexts);
+
+            // Always ensure blocks is an array
+            if (!Array.isArray(blocks)) {
+              blocks = [blocks];
+            }
+            return blocks;
+          }
+
           return translatedTexts;
         } catch (error) {
           throw new Error(`Translation failed: ${error.message}`);
         }
       },
-
-      /**
-       * @returns {{count: number, limit: number}} count for the number of characters used, limit for how many can be used in the current period
-       */
 
       async usage() {
         // Implement usage

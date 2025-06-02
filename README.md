@@ -24,7 +24,6 @@ Example:
 
 ```javascript
 module.exports = {
-    // ...
   translate: {
     enabled: true,
     config: {
@@ -32,10 +31,19 @@ module.exports = {
       providerOptions: {
         apiURL: env("TRANSLATION_API_URL"),
       },
+      translatedFieldTypes: [
+        'string',
+        { type: 'blocks', format: 'jsonb' }, 
+        { type: 'text', format: 'plain' },
+        { type: 'richtext', format: 'markdown' },
+        'component',
+        'dynamiczone',
+      ],
     },
   },
-  // ...
+// ...
 };
+
 ```
 
 ## Usage
