@@ -4,10 +4,11 @@ const fetchTranslation = async ({
   text,
   targetLocale,
   sourceLocale,
+  translationProvider,
 }) => {
   // dynamic import html
   const isHTML = (await import("is-html")).default;
-  
+
   if (!apiURL || !text || !targetLocale) {
     throw new Error("API URL, text, and target locale must be provided");
   }
@@ -20,6 +21,10 @@ const fetchTranslation = async ({
 
   if (isHTML(text)) {
     url += "&format=html";
+  }
+
+  if (translationProvider) {
+    url += `&provider=${translationProvider}`;
   }
 
   try {

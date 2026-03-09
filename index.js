@@ -69,6 +69,7 @@ module.exports = {
               text: singleText,
               targetLocale,
               sourceLocale,
+              translationProvider,
             }).catch((error) => {
               console.log(`Failed to translate: "${singleText}"`);
               console.error(error);
