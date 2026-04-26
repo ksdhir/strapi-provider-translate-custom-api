@@ -103,8 +103,9 @@ module.exports = {
         // logged so the operator can see what went wrong.
         let translatedTexts = settled.map((r, i) => {
           if (r.status === "fulfilled") return r.value;
-          console.error(`Failed to translate item ${i}: "${text[i]}"`);
-          console.error(r.reason);
+          strapi.log.warn(
+            `[strapi-provider-translate-custom-api] Failed to translate item ${i}: "${text[i]}" — ${r.reason?.message ?? r.reason}`
+          );
           return text[i];
         });
 

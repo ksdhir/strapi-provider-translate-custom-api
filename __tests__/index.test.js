@@ -8,13 +8,15 @@ const provider = require("../index");
 const setupStrapi = ({
   blockToHtml = jest.fn(),
   htmlToBlock = jest.fn(),
+  log = { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
 } = {}) => {
   global.strapi = {
+    log,
     plugin: jest.fn().mockReturnValue({
       service: jest.fn().mockReturnValue({ blockToHtml, htmlToBlock }),
     }),
   };
-  return { blockToHtml, htmlToBlock };
+  return { blockToHtml, htmlToBlock, log };
 };
 
 beforeEach(() => {
@@ -231,8 +233,8 @@ describe("init / translate — current v1.x behavior", () => {
     expect(result).toHaveLength(1);
   });
 
-  test("falls back to source text on partial failure but logs (#8)", async () => {
-    setupStrapi();
+  test("falls back to source text on partial failure but logs via strapi.log (#8 + #10)", async () => {
+    const { log } = setupStrapi();
     fetchTranslation
       .mockRejectedValueOnce(new Error("boom"))
       .mockResolvedValueOnce("mundo");
@@ -245,8 +247,11 @@ describe("init / translate — current v1.x behavior", () => {
     });
 
     expect(result).toEqual(["hello", "mundo"]);
-    expect(console.error).toHaveBeenCalledWith(
+    expect(log.warn).toHaveBeenCalledWith(
       expect.stringContaining("Failed to translate item 0")
+    );
+    expect(log.warn).toHaveBeenCalledWith(
+      expect.stringContaining("boom")
     );
   });
 
