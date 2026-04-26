@@ -8,15 +8,22 @@ const provider = require("../index");
 const setupStrapi = ({
   blockToHtml = jest.fn(),
   htmlToBlock = jest.fn(),
+  markdownToHtml = jest.fn(),
+  htmlToMarkdown = jest.fn(),
   log = { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
 } = {}) => {
   global.strapi = {
     log,
     plugin: jest.fn().mockReturnValue({
-      service: jest.fn().mockReturnValue({ blockToHtml, htmlToBlock }),
+      service: jest.fn().mockReturnValue({
+        blockToHtml,
+        htmlToBlock,
+        markdownToHtml,
+        htmlToMarkdown,
+      }),
     }),
   };
-  return { blockToHtml, htmlToBlock, log };
+  return { blockToHtml, htmlToBlock, markdownToHtml, htmlToMarkdown, log };
 };
 
 beforeEach(() => {
@@ -368,6 +375,61 @@ describe("init / translate — current v1.x behavior", () => {
         targetLocale: "es",
       })
     ).rejects.toThrow(AggregateError);
+  });
+
+  test("converts markdown to HTML and back for markdown format (#12)", async () => {
+    const { markdownToHtml, htmlToMarkdown } = setupStrapi();
+    markdownToHtml.mockResolvedValueOnce("<p>hello <strong>world</strong></p>");
+    fetchTranslation.mockResolvedValueOnce("<p>hola <strong>mundo</strong></p>");
+    htmlToMarkdown.mockResolvedValueOnce("hola **mundo**");
+    const { translate } = init();
+
+    const result = await translate({
+      text: "hello **world**",
+      sourceLocale: "en",
+      targetLocale: "es",
+      format: "markdown",
+    });
+
+    expect(markdownToHtml).toHaveBeenCalledWith("hello **world**");
+    expect(fetchTranslation).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "<p>hello <strong>world</strong></p>" })
+    );
+    expect(htmlToMarkdown).toHaveBeenCalledWith(["<p>hola <strong>mundo</strong></p>"]);
+    expect(result).toEqual(["hola **mundo**"]);
+  });
+
+  test("ensures htmlToMarkdown result is wrapped in an array (#12)", async () => {
+    const { markdownToHtml, htmlToMarkdown } = setupStrapi();
+    markdownToHtml.mockResolvedValueOnce("<p>hello</p>");
+    fetchTranslation.mockResolvedValueOnce("<p>hola</p>");
+    htmlToMarkdown.mockResolvedValueOnce("hola");
+    const { translate } = init();
+
+    const result = await translate({
+      text: "hello",
+      sourceLocale: "en",
+      targetLocale: "es",
+      format: "markdown",
+    });
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toEqual(["hola"]);
+  });
+
+  test("does not invoke markdownToHtml for plain format", async () => {
+    const { markdownToHtml } = setupStrapi();
+    fetchTranslation.mockResolvedValueOnce("hola");
+    const { translate } = init();
+
+    await translate({
+      text: "hello",
+      sourceLocale: "en",
+      targetLocale: "es",
+      format: "plain",
+    });
+
+    expect(markdownToHtml).not.toHaveBeenCalled();
   });
 
   test("usage() is a no-op", async () => {

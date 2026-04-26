@@ -81,11 +81,18 @@ module.exports = {
 
         const formatService = strapi.plugin('translate').service('format');
         let isBlock = false;
+        let isMarkdown = false;
 
-        // If the input is a block (jsonb), convert it to HTML for translation
+        // Route format-specific content through HTML on the wire so the
+        // consumer's API only ever sees plain text or HTML, never blocks
+        // or markdown semantics. Mirrors the host plugin's own conversion
+        // services.
         if (Array.isArray(text) && format === 'jsonb') {
           text = await formatService.blockToHtml(text);
           isBlock = true;
+        } else if (format === 'markdown') {
+          text = await formatService.markdownToHtml(text);
+          isMarkdown = true;
         }
 
         // Ensure text is an array for batch translation
@@ -140,13 +147,22 @@ module.exports = {
           return text[i];
         });
 
-        // If we translated a block, convert the translated HTML back to blocks
+        // Convert HTML responses back to the original format the host plugin
+        // expects for this field type.
         if (isBlock) {
           let blocks = await formatService.htmlToBlock(translatedTexts);
           if (!Array.isArray(blocks)) {
             blocks = [blocks];
           }
           return blocks;
+        }
+
+        if (isMarkdown) {
+          let markdown = await formatService.htmlToMarkdown(translatedTexts);
+          if (!Array.isArray(markdown)) {
+            markdown = [markdown];
+          }
+          return markdown;
         }
 
         return translatedTexts;
