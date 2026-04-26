@@ -1,8 +1,35 @@
 const { fetchTranslation } = require("./apiHandler");
 
+const DEFAULT_CONCURRENCY = 5;
+
 // provide fallbacks for services that don't support the target languages
 const fallbackLanguages = {
   DeepL: [{ source: "es-419", fallback: "es" }],
+};
+
+// Throttled Promise.allSettled. Runs at most `limit` items in flight at a time
+// and preserves input order in the results array. We rely on this instead of
+// raw Promise.allSettled so a 50-string page doesn't fire 50 simultaneous
+// fetches at the consumer's API (issue #9).
+const allSettledLimit = async (items, limit, fn) => {
+  const results = new Array(items.length);
+  let next = 0;
+
+  const worker = async () => {
+    while (true) {
+      const i = next++;
+      if (i >= items.length) return;
+      try {
+        results[i] = { status: "fulfilled", value: await fn(items[i], i) };
+      } catch (reason) {
+        results[i] = { status: "rejected", reason };
+      }
+    }
+  };
+
+  const workerCount = Math.max(1, Math.min(limit, items.length));
+  await Promise.all(Array.from({ length: workerCount }, worker));
+  return results;
 };
 
 module.exports = {
@@ -10,7 +37,13 @@ module.exports = {
   name: "Custom API Translation Provider",
 
   init(providerOptions = {}, pluginConfig = {}) {
-    const { apiURL, apiKey, translationProvider, timeoutMs } = providerOptions;
+    const {
+      apiURL,
+      apiKey,
+      translationProvider,
+      timeoutMs,
+      concurrency = DEFAULT_CONCURRENCY,
+    } = providerOptions;
 
     if (!apiURL) {
       throw new Error(
@@ -75,18 +108,16 @@ module.exports = {
           }
         }
 
-        const settled = await Promise.allSettled(
-          text.map((singleText) =>
-            fetchTranslation({
-              apiURL,
-              apiKey,
-              text: singleText,
-              targetLocale,
-              sourceLocale,
-              translationProvider,
-              timeoutMs,
-            })
-          )
+        const settled = await allSettledLimit(text, concurrency, (singleText) =>
+          fetchTranslation({
+            apiURL,
+            apiKey,
+            text: singleText,
+            targetLocale,
+            sourceLocale,
+            translationProvider,
+            timeoutMs,
+          })
         );
 
         // If every item failed, surface a real error so the host plugin

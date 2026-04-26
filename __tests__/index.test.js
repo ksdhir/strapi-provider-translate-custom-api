@@ -36,6 +36,105 @@ const init = (opts = {}) =>
     ...opts,
   });
 
+describe("translate — concurrency limit (#9)", () => {
+  test("preserves input order even when items resolve out of order", async () => {
+    setupStrapi();
+    const resolveOrder = [];
+    fetchTranslation.mockImplementation(
+      (args) =>
+        new Promise((resolve) => {
+          // Resolve in reverse: longer text waits longer
+          const delay = (10 - args.text.length) * 5;
+          setTimeout(() => {
+            resolveOrder.push(args.text);
+            resolve(`tr-${args.text}`);
+          }, Math.max(0, delay));
+        })
+    );
+    const { translate } = init();
+
+    const result = await translate({
+      text: ["hello", "hi", "hey there", "yo", "good morning"],
+      sourceLocale: "en",
+      targetLocale: "es",
+    });
+
+    // Output order matches input order (positional)
+    expect(result).toEqual([
+      "tr-hello",
+      "tr-hi",
+      "tr-hey there",
+      "tr-yo",
+      "tr-good morning",
+    ]);
+    // But resolution order was different — proves the queue interleaved
+    expect(resolveOrder).not.toEqual([
+      "hello",
+      "hi",
+      "hey there",
+      "yo",
+      "good morning",
+    ]);
+  });
+
+  test("runs at most `concurrency` items in flight at once", async () => {
+    setupStrapi();
+    let inFlight = 0;
+    let peakInFlight = 0;
+    fetchTranslation.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          inFlight++;
+          peakInFlight = Math.max(peakInFlight, inFlight);
+          setTimeout(() => {
+            inFlight--;
+            resolve("ok");
+          }, 20);
+        })
+    );
+    const { translate } = provider.init({
+      apiURL: "https://api.example.com/translate",
+      concurrency: 2,
+    });
+
+    await translate({
+      text: ["a", "b", "c", "d", "e", "f", "g"],
+      sourceLocale: "en",
+      targetLocale: "es",
+    });
+
+    expect(peakInFlight).toBeLessThanOrEqual(2);
+    expect(peakInFlight).toBeGreaterThan(0);
+  });
+
+  test("defaults to concurrency 5 when not configured", async () => {
+    setupStrapi();
+    let peakInFlight = 0;
+    let inFlight = 0;
+    fetchTranslation.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          inFlight++;
+          peakInFlight = Math.max(peakInFlight, inFlight);
+          setTimeout(() => {
+            inFlight--;
+            resolve("ok");
+          }, 10);
+        })
+    );
+    const { translate } = init();
+
+    await translate({
+      text: Array.from({ length: 12 }, (_, i) => `item${i}`),
+      sourceLocale: "en",
+      targetLocale: "es",
+    });
+
+    expect(peakInFlight).toBeLessThanOrEqual(5);
+    expect(peakInFlight).toBeGreaterThan(1);
+  });
+});
+
 describe("init — timeoutMs forwarding (#7)", () => {
   test("forwards timeoutMs from providerOptions to fetchTranslation", async () => {
     setupStrapi();
