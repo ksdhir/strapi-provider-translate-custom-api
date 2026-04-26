@@ -1,1 +1,12 @@
 node_modules
+
+# Personal Claude Code state
+.claude/settings.local.json
+.claude/notes/
+
+# Internal planning — file as GitHub issues instead
+IMPROVEMENTS.md
+.claude/skills/improvement-to-issue/
+
+# MCP servers — keep approval-prompts out of contributors' way
+.mcp.json
