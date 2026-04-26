@@ -28,7 +28,9 @@ const fetchTranslation = async ({
 
   const url = `${apiURL}?${params.toString()}`;
 
-  const headers = {};
+  const headers = {
+    "Content-Type": isHTML(text) ? "text/html" : "text/plain",
+  };
   if (apiKey) {
     headers["Authorization"] = `Bearer ${apiKey}`;
   }

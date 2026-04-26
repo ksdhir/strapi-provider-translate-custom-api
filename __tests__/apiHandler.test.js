@@ -181,6 +181,36 @@ describe("fetchTranslation — current v1.x wire contract", () => {
   });
 });
 
+describe("fetchTranslation — Content-Type header (#6)", () => {
+  test("sets Content-Type: text/plain for plain text", async () => {
+    mockFetchOnce("hola");
+
+    await fetchTranslation({
+      apiURL: "https://api.example.com/translate",
+      text: "hello world",
+      sourceLocale: "en",
+      targetLocale: "es",
+    });
+
+    const [, init] = lastFetchCall();
+    expect(init.headers["Content-Type"]).toBe("text/plain");
+  });
+
+  test("sets Content-Type: text/html for HTML input", async () => {
+    mockFetchOnce("<p>hola</p>");
+
+    await fetchTranslation({
+      apiURL: "https://api.example.com/translate",
+      text: "<p>hello</p>",
+      sourceLocale: "en",
+      targetLocale: "es",
+    });
+
+    const [, init] = lastFetchCall();
+    expect(init.headers["Content-Type"]).toBe("text/html");
+  });
+});
+
 describe("fetchTranslation — Authorization header (#4)", () => {
   test("sends apiKey as Authorization: Bearer header", async () => {
     mockFetchOnce("hola");
