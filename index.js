@@ -12,6 +12,21 @@ module.exports = {
   init(providerOptions = {}, pluginConfig = {}) {
     const { apiURL, apiKey, translationProvider } = providerOptions;
 
+    if (!apiURL) {
+      throw new Error(
+        "strapi-provider-translate-custom-api: providerOptions.apiURL is required"
+      );
+    }
+
+    try {
+      new URL(apiURL);
+    } catch (cause) {
+      throw new Error(
+        `strapi-provider-translate-custom-api: providerOptions.apiURL is not a valid URL (got "${apiURL}"). Include the scheme, e.g. "https://example.com/translate".`,
+        { cause }
+      );
+    }
+
     return {
       /**
        * @param {{

@@ -34,6 +34,40 @@ const init = (opts = {}) =>
     ...opts,
   });
 
+describe("init — apiURL validation (#11)", () => {
+  test("throws when apiURL is missing", () => {
+    expect(() => provider.init({})).toThrow(/apiURL is required/);
+  });
+
+  test("throws when apiURL has no scheme", () => {
+    expect(() => provider.init({ apiURL: "example.com/translate" })).toThrow(
+      /not a valid URL/
+    );
+  });
+
+  test("throws when apiURL is malformed", () => {
+    expect(() => provider.init({ apiURL: "  " })).toThrow(/not a valid URL/);
+  });
+
+  test("preserves the bad URL value in the error message", () => {
+    expect(() =>
+      provider.init({ apiURL: "not a url" })
+    ).toThrow(/not a url/);
+  });
+
+  test("accepts a valid http URL", () => {
+    expect(() =>
+      provider.init({ apiURL: "http://api.example.com/translate" })
+    ).not.toThrow();
+  });
+
+  test("accepts a valid https URL with path and query", () => {
+    expect(() =>
+      provider.init({ apiURL: "https://api.example.com/v1/translate?x=1" })
+    ).not.toThrow();
+  });
+});
+
 describe("init / translate — current v1.x behavior", () => {
   test("returns empty array when text is missing", async () => {
     setupStrapi();
