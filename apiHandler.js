@@ -1,3 +1,5 @@
+const DEFAULT_TIMEOUT_MS = 30_000;
+
 const fetchTranslation = async ({
   apiURL,
   apiKey,
@@ -5,6 +7,7 @@ const fetchTranslation = async ({
   targetLocale,
   sourceLocale,
   translationProvider,
+  timeoutMs,
 }) => {
   // dynamic import html
   const isHTML = (await import("is-html")).default;
@@ -13,42 +16,48 @@ const fetchTranslation = async ({
     throw new Error("API URL, text, and target locale must be provided");
   }
 
-  let url = `${apiURL}?target=${targetLocale}&source=${sourceLocale}`;
-
-  if (apiKey) {
-    url += `&apiKey=${apiKey}`;
-  }
+  const params = new URLSearchParams({
+    target: targetLocale,
+    source: sourceLocale,
+  });
 
   if (isHTML(text)) {
-    url += "&format=html";
+    params.set("format", "html");
   }
 
   if (translationProvider) {
-    url += `&provider=${translationProvider}`;
+    params.set("provider", translationProvider);
   }
 
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      body: text,
-    });
+  const url = `${apiURL}?${params.toString()}`;
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
-    }
-
-    const data = await response.text();
-
-    if (!data) {
-      throw new Error("No translation found");
-    }
-
-    return data;
-  } catch (error) {
-    console.error(`Failed to fetch translation for: "${text}"`);
-    console.error(error);
-    return text; // Fallback to original text on failure
+  const headers = {
+    "Content-Type": isHTML(text) ? "text/html" : "text/plain",
+  };
+  if (apiKey) {
+    headers["Authorization"] = `Bearer ${apiKey}`;
   }
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: text,
+    signal: AbortSignal.timeout(timeoutMs ?? DEFAULT_TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Translation API responded with HTTP ${response.status} ${response.statusText}`
+    );
+  }
+
+  const data = await response.text();
+
+  if (!data) {
+    throw new Error("Translation API responded with an empty body");
+  }
+
+  return data;
 };
 
-module.exports = { fetchTranslation };
+module.exports = { fetchTranslation, DEFAULT_TIMEOUT_MS };
