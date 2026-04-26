@@ -1,3 +1,5 @@
+const DEFAULT_TIMEOUT_MS = 30_000;
+
 const fetchTranslation = async ({
   apiURL,
   apiKey,
@@ -5,6 +7,7 @@ const fetchTranslation = async ({
   targetLocale,
   sourceLocale,
   translationProvider,
+  timeoutMs,
 }) => {
   // dynamic import html
   const isHTML = (await import("is-html")).default;
@@ -40,6 +43,7 @@ const fetchTranslation = async ({
       method: "POST",
       headers,
       body: text,
+      signal: AbortSignal.timeout(timeoutMs ?? DEFAULT_TIMEOUT_MS),
     });
 
     if (!response.ok) {
@@ -60,4 +64,4 @@ const fetchTranslation = async ({
   }
 };
 
-module.exports = { fetchTranslation };
+module.exports = { fetchTranslation, DEFAULT_TIMEOUT_MS };

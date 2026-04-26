@@ -34,6 +34,45 @@ const init = (opts = {}) =>
     ...opts,
   });
 
+describe("init — timeoutMs forwarding (#7)", () => {
+  test("forwards timeoutMs from providerOptions to fetchTranslation", async () => {
+    setupStrapi();
+    fetchTranslation.mockResolvedValueOnce("hola");
+    const { translate } = provider.init({
+      apiURL: "https://api.example.com/translate",
+      timeoutMs: 5_000,
+    });
+
+    await translate({
+      text: "hello",
+      sourceLocale: "en",
+      targetLocale: "es",
+    });
+
+    expect(fetchTranslation).toHaveBeenCalledWith(
+      expect.objectContaining({ timeoutMs: 5_000 })
+    );
+  });
+
+  test("forwards undefined when timeoutMs is not configured (default applies in apiHandler)", async () => {
+    setupStrapi();
+    fetchTranslation.mockResolvedValueOnce("hola");
+    const { translate } = provider.init({
+      apiURL: "https://api.example.com/translate",
+    });
+
+    await translate({
+      text: "hello",
+      sourceLocale: "en",
+      targetLocale: "es",
+    });
+
+    expect(fetchTranslation).toHaveBeenCalledWith(
+      expect.objectContaining({ timeoutMs: undefined })
+    );
+  });
+});
+
 describe("init — apiURL validation (#11)", () => {
   test("throws when apiURL is missing", () => {
     expect(() => provider.init({})).toThrow(/apiURL is required/);

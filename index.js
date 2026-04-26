@@ -10,7 +10,7 @@ module.exports = {
   name: "Custom API Translation Provider",
 
   init(providerOptions = {}, pluginConfig = {}) {
-    const { apiURL, apiKey, translationProvider } = providerOptions;
+    const { apiURL, apiKey, translationProvider, timeoutMs } = providerOptions;
 
     if (!apiURL) {
       throw new Error(
@@ -85,6 +85,7 @@ module.exports = {
               targetLocale,
               sourceLocale,
               translationProvider,
+              timeoutMs,
             }).catch((error) => {
               console.log(`Failed to translate: "${singleText}"`);
               console.error(error);

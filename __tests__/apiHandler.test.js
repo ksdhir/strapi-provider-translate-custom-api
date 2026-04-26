@@ -181,6 +181,51 @@ describe("fetchTranslation — current v1.x wire contract", () => {
   });
 });
 
+describe("fetchTranslation — fetch timeout (#7)", () => {
+  test("uses 30s timeout by default via AbortSignal.timeout", async () => {
+    const timeoutSpy = jest.spyOn(AbortSignal, "timeout");
+    mockFetchOnce("hola");
+
+    await fetchTranslation({
+      apiURL: "https://api.example.com/translate",
+      text: "hello",
+      sourceLocale: "en",
+      targetLocale: "es",
+    });
+
+    expect(timeoutSpy).toHaveBeenCalledWith(30_000);
+  });
+
+  test("respects custom timeoutMs", async () => {
+    const timeoutSpy = jest.spyOn(AbortSignal, "timeout");
+    mockFetchOnce("hola");
+
+    await fetchTranslation({
+      apiURL: "https://api.example.com/translate",
+      text: "hello",
+      sourceLocale: "en",
+      targetLocale: "es",
+      timeoutMs: 5_000,
+    });
+
+    expect(timeoutSpy).toHaveBeenCalledWith(5_000);
+  });
+
+  test("forwards an AbortSignal to fetch", async () => {
+    mockFetchOnce("hola");
+
+    await fetchTranslation({
+      apiURL: "https://api.example.com/translate",
+      text: "hello",
+      sourceLocale: "en",
+      targetLocale: "es",
+    });
+
+    const [, init] = lastFetchCall();
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+});
+
 describe("fetchTranslation — Content-Type header (#6)", () => {
   test("sets Content-Type: text/plain for plain text", async () => {
     mockFetchOnce("hola");
