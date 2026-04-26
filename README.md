@@ -35,6 +35,7 @@ module.exports = ({ env }) => ({
         apiKey: env("TRANSLATION_API_KEY"),      // optional; sent as Bearer token
         translationProvider: "MyProvider",       // optional label, see fallback table
         timeoutMs: 30_000,                       // optional, default 30s
+        concurrency: 5,                          // optional, default 5
       },
       translatedFieldTypes: [
         "string",
