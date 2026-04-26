@@ -13,19 +13,24 @@ const fetchTranslation = async ({
     throw new Error("API URL, text, and target locale must be provided");
   }
 
-  let url = `${apiURL}?target=${targetLocale}&source=${sourceLocale}`;
+  const params = new URLSearchParams({
+    target: targetLocale,
+    source: sourceLocale,
+  });
 
   if (apiKey) {
-    url += `&apiKey=${apiKey}`;
+    params.set("apiKey", apiKey);
   }
 
   if (isHTML(text)) {
-    url += "&format=html";
+    params.set("format", "html");
   }
 
   if (translationProvider) {
-    url += `&provider=${translationProvider}`;
+    params.set("provider", translationProvider);
   }
+
+  const url = `${apiURL}?${params.toString()}`;
 
   try {
     const response = await fetch(url, {

@@ -179,3 +179,52 @@ describe("fetchTranslation — current v1.x wire contract", () => {
     ).rejects.toThrow(/target locale/);
   });
 });
+
+describe("fetchTranslation — URL encoding (#5)", () => {
+  test("percent-encodes locale codes containing reserved characters", async () => {
+    mockFetchOnce("hola");
+
+    await fetchTranslation({
+      apiURL: "https://api.example.com/translate",
+      text: "hello",
+      sourceLocale: "en-US",
+      targetLocale: "es-419",
+    });
+
+    const [url] = lastFetchCall();
+    expect(url).toContain("target=es-419");
+    expect(url).toContain("source=en-US");
+  });
+
+  test("percent-encodes apiKey containing reserved characters", async () => {
+    mockFetchOnce("hola");
+
+    await fetchTranslation({
+      apiURL: "https://api.example.com/translate",
+      apiKey: "secret&key=with+chars",
+      text: "hello",
+      sourceLocale: "en",
+      targetLocale: "es",
+    });
+
+    const [url] = lastFetchCall();
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get("apiKey")).toBe("secret&key=with+chars");
+  });
+
+  test("percent-encodes provider names containing spaces", async () => {
+    mockFetchOnce("hola");
+
+    await fetchTranslation({
+      apiURL: "https://api.example.com/translate",
+      text: "hello",
+      sourceLocale: "en",
+      targetLocale: "es",
+      translationProvider: "My Provider",
+    });
+
+    const [url] = lastFetchCall();
+    const parsed = new URL(url);
+    expect(parsed.searchParams.get("provider")).toBe("My Provider");
+  });
+});
