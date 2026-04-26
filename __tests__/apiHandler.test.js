@@ -34,7 +34,7 @@ describe("fetchTranslation — current v1.x wire contract", () => {
     expect(url).toBe("https://api.example.com/translate?target=es&source=en");
   });
 
-  test("appends apiKey to URL when provided", async () => {
+  test("does not include apiKey in URL (#4 — moved to header)", async () => {
     mockFetchOnce("hola");
 
     await fetchTranslation({
@@ -46,7 +46,8 @@ describe("fetchTranslation — current v1.x wire contract", () => {
     });
 
     const [url] = lastFetchCall();
-    expect(url).toContain("apiKey=secret123");
+    expect(url).not.toContain("apiKey");
+    expect(url).not.toContain("secret123");
   });
 
   test("appends &format=html when input is HTML", async () => {
@@ -180,6 +181,37 @@ describe("fetchTranslation — current v1.x wire contract", () => {
   });
 });
 
+describe("fetchTranslation — Authorization header (#4)", () => {
+  test("sends apiKey as Authorization: Bearer header", async () => {
+    mockFetchOnce("hola");
+
+    await fetchTranslation({
+      apiURL: "https://api.example.com/translate",
+      apiKey: "secret123",
+      text: "hello",
+      sourceLocale: "en",
+      targetLocale: "es",
+    });
+
+    const [, init] = lastFetchCall();
+    expect(init.headers.Authorization).toBe("Bearer secret123");
+  });
+
+  test("does not send Authorization header when apiKey is absent", async () => {
+    mockFetchOnce("hola");
+
+    await fetchTranslation({
+      apiURL: "https://api.example.com/translate",
+      text: "hello",
+      sourceLocale: "en",
+      targetLocale: "es",
+    });
+
+    const [, init] = lastFetchCall();
+    expect(init.headers.Authorization).toBeUndefined();
+  });
+});
+
 describe("fetchTranslation — URL encoding (#5)", () => {
   test("percent-encodes locale codes containing reserved characters", async () => {
     mockFetchOnce("hola");
@@ -194,22 +226,6 @@ describe("fetchTranslation — URL encoding (#5)", () => {
     const [url] = lastFetchCall();
     expect(url).toContain("target=es-419");
     expect(url).toContain("source=en-US");
-  });
-
-  test("percent-encodes apiKey containing reserved characters", async () => {
-    mockFetchOnce("hola");
-
-    await fetchTranslation({
-      apiURL: "https://api.example.com/translate",
-      apiKey: "secret&key=with+chars",
-      text: "hello",
-      sourceLocale: "en",
-      targetLocale: "es",
-    });
-
-    const [url] = lastFetchCall();
-    const parsed = new URL(url);
-    expect(parsed.searchParams.get("apiKey")).toBe("secret&key=with+chars");
   });
 
   test("percent-encodes provider names containing spaces", async () => {

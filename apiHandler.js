@@ -18,10 +18,6 @@ const fetchTranslation = async ({
     source: sourceLocale,
   });
 
-  if (apiKey) {
-    params.set("apiKey", apiKey);
-  }
-
   if (isHTML(text)) {
     params.set("format", "html");
   }
@@ -32,9 +28,15 @@ const fetchTranslation = async ({
 
   const url = `${apiURL}?${params.toString()}`;
 
+  const headers = {};
+  if (apiKey) {
+    headers["Authorization"] = `Bearer ${apiKey}`;
+  }
+
   try {
     const response = await fetch(url, {
       method: "POST",
+      headers,
       body: text,
     });
 
