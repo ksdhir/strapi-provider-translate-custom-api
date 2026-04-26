@@ -1,6 +1,6 @@
 {
   "name": "strapi-provider-translate-custom-api",
-  "version": "2.0.0-beta.0",
+  "version": "2.0.0",
   "main": "index.js",
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
