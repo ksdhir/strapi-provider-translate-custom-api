@@ -128,6 +128,32 @@ app.post("/translate", async (req, res) => {
 app.listen(3000);
 ```
 
+## Failure behavior
+
+Translation failures are handled at two distinct layers — per-item and per-batch — and the provider deliberately reports them differently.
+
+### Per-item: silent fallback to source text (since v2.1.0)
+
+When a single item in a batch fails (non-2xx response, network error, timeout, empty response body), the provider:
+
+1. Catches the error inside `allSettledLimit`.
+2. Logs a warning via `strapi.log.warn` with the prefix `[strapi-provider-translate-custom-api]`, the array index of the failed item, the original source text, and the error message.
+3. Substitutes the original source text into that slot of the result array so the rest of the batch still completes.
+
+This means a content editor saving a page where one field couldn't be translated will see source-language text in that field — not an error, not an empty string. The batch returns `2xx` to the host plugin and the editor can manually retranslate the affected field. The `strapi.log.warn` route (added in v2.1.0, [#10](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/10)) flows through Strapi's pino logger, so failures respect your project's configured log level and format and can be surfaced in dashboards alongside the rest of your Strapi logs.
+
+Before v2.1.0 these failures were emitted via `console.error`. Before v2.0.0 they were silently swallowed entirely.
+
+### Batch-level: throws `AggregateError` when every item fails (since v2.0.0)
+
+If **every** item in the batch fails (e.g. your custom API is down, the API key is wrong, the URL is misrouted), the provider throws an `AggregateError` whose `errors` field contains the per-item rejection reasons. The host plugin sees the error and surfaces it to the editor instead of silently presenting an entire page of source-text fallbacks that look like successful translations.
+
+This was introduced in v2.0.0 ([#8](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/8)) to fix the v1.x behavior where catastrophic failures were indistinguishable from successful translations.
+
+### No silent-fallback opt-out today
+
+There is no `silentFallback: false` flag that converts the per-item warning into a thrown error. If you need that behavior — for example, you'd rather have the whole batch fail loudly than ship source-text fallbacks to your editors — open an issue describing the use case. It would land as a new entry in `providerOptions` in a future minor release; this PR documents the *current* behavior only.
+
 ## Migration from v1.x
 
 If you have a custom API server speaking the v1.x contract, you need to update it before installing v2.0.0. The differences:
