@@ -1,8 +1,35 @@
 const { fetchTranslation } = require("./apiHandler");
 
+const DEFAULT_CONCURRENCY = 5;
+
 // provide fallbacks for services that don't support the target languages
 const fallbackLanguages = {
   DeepL: [{ source: "es-419", fallback: "es" }],
+};
+
+// Throttled Promise.allSettled. Runs at most `limit` items in flight at a time
+// and preserves input order in the results array. We rely on this instead of
+// raw Promise.allSettled so a 50-string page doesn't fire 50 simultaneous
+// fetches at the consumer's API (issue #9).
+const allSettledLimit = async (items, limit, fn) => {
+  const results = new Array(items.length);
+  let next = 0;
+
+  const worker = async () => {
+    while (true) {
+      const i = next++;
+      if (i >= items.length) return;
+      try {
+        results[i] = { status: "fulfilled", value: await fn(items[i], i) };
+      } catch (reason) {
+        results[i] = { status: "rejected", reason };
+      }
+    }
+  };
+
+  const workerCount = Math.max(1, Math.min(limit, items.length));
+  await Promise.all(Array.from({ length: workerCount }, worker));
+  return results;
 };
 
 module.exports = {
@@ -10,7 +37,13 @@ module.exports = {
   name: "Custom API Translation Provider",
 
   init(providerOptions = {}, pluginConfig = {}) {
-    const { apiURL, apiKey, translationProvider, timeoutMs } = providerOptions;
+    const {
+      apiURL,
+      apiKey,
+      translationProvider,
+      timeoutMs,
+      concurrency = DEFAULT_CONCURRENCY,
+    } = providerOptions;
 
     if (!apiURL) {
       throw new Error(
@@ -48,11 +81,18 @@ module.exports = {
 
         const formatService = strapi.plugin('translate').service('format');
         let isBlock = false;
+        let isMarkdown = false;
 
-        // If the input is a block (jsonb), convert it to HTML for translation
+        // Route format-specific content through HTML on the wire so the
+        // consumer's API only ever sees plain text or HTML, never blocks
+        // or markdown semantics. Mirrors the host plugin's own conversion
+        // services.
         if (Array.isArray(text) && format === 'jsonb') {
           text = await formatService.blockToHtml(text);
           isBlock = true;
+        } else if (format === 'markdown') {
+          text = await formatService.markdownToHtml(text);
+          isMarkdown = true;
         }
 
         // Ensure text is an array for batch translation
@@ -75,18 +115,16 @@ module.exports = {
           }
         }
 
-        const settled = await Promise.allSettled(
-          text.map((singleText) =>
-            fetchTranslation({
-              apiURL,
-              apiKey,
-              text: singleText,
-              targetLocale,
-              sourceLocale,
-              translationProvider,
-              timeoutMs,
-            })
-          )
+        const settled = await allSettledLimit(text, concurrency, (singleText) =>
+          fetchTranslation({
+            apiURL,
+            apiKey,
+            text: singleText,
+            targetLocale,
+            sourceLocale,
+            translationProvider,
+            timeoutMs,
+          })
         );
 
         // If every item failed, surface a real error so the host plugin
@@ -103,18 +141,28 @@ module.exports = {
         // logged so the operator can see what went wrong.
         let translatedTexts = settled.map((r, i) => {
           if (r.status === "fulfilled") return r.value;
-          console.error(`Failed to translate item ${i}: "${text[i]}"`);
-          console.error(r.reason);
+          strapi.log.warn(
+            `[strapi-provider-translate-custom-api] Failed to translate item ${i}: "${text[i]}" — ${r.reason?.message ?? r.reason}`
+          );
           return text[i];
         });
 
-        // If we translated a block, convert the translated HTML back to blocks
+        // Convert HTML responses back to the original format the host plugin
+        // expects for this field type.
         if (isBlock) {
           let blocks = await formatService.htmlToBlock(translatedTexts);
           if (!Array.isArray(blocks)) {
             blocks = [blocks];
           }
           return blocks;
+        }
+
+        if (isMarkdown) {
+          let markdown = await formatService.htmlToMarkdown(translatedTexts);
+          if (!Array.isArray(markdown)) {
+            markdown = [markdown];
+          }
+          return markdown;
         }
 
         return translatedTexts;

@@ -8,13 +8,22 @@ const provider = require("../index");
 const setupStrapi = ({
   blockToHtml = jest.fn(),
   htmlToBlock = jest.fn(),
+  markdownToHtml = jest.fn(),
+  htmlToMarkdown = jest.fn(),
+  log = { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
 } = {}) => {
   global.strapi = {
+    log,
     plugin: jest.fn().mockReturnValue({
-      service: jest.fn().mockReturnValue({ blockToHtml, htmlToBlock }),
+      service: jest.fn().mockReturnValue({
+        blockToHtml,
+        htmlToBlock,
+        markdownToHtml,
+        htmlToMarkdown,
+      }),
     }),
   };
-  return { blockToHtml, htmlToBlock };
+  return { blockToHtml, htmlToBlock, markdownToHtml, htmlToMarkdown, log };
 };
 
 beforeEach(() => {
@@ -33,6 +42,105 @@ const init = (opts = {}) =>
     apiURL: "https://api.example.com/translate",
     ...opts,
   });
+
+describe("translate — concurrency limit (#9)", () => {
+  test("preserves input order even when items resolve out of order", async () => {
+    setupStrapi();
+    const resolveOrder = [];
+    fetchTranslation.mockImplementation(
+      (args) =>
+        new Promise((resolve) => {
+          // Resolve in reverse: longer text waits longer
+          const delay = (10 - args.text.length) * 5;
+          setTimeout(() => {
+            resolveOrder.push(args.text);
+            resolve(`tr-${args.text}`);
+          }, Math.max(0, delay));
+        })
+    );
+    const { translate } = init();
+
+    const result = await translate({
+      text: ["hello", "hi", "hey there", "yo", "good morning"],
+      sourceLocale: "en",
+      targetLocale: "es",
+    });
+
+    // Output order matches input order (positional)
+    expect(result).toEqual([
+      "tr-hello",
+      "tr-hi",
+      "tr-hey there",
+      "tr-yo",
+      "tr-good morning",
+    ]);
+    // But resolution order was different — proves the queue interleaved
+    expect(resolveOrder).not.toEqual([
+      "hello",
+      "hi",
+      "hey there",
+      "yo",
+      "good morning",
+    ]);
+  });
+
+  test("runs at most `concurrency` items in flight at once", async () => {
+    setupStrapi();
+    let inFlight = 0;
+    let peakInFlight = 0;
+    fetchTranslation.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          inFlight++;
+          peakInFlight = Math.max(peakInFlight, inFlight);
+          setTimeout(() => {
+            inFlight--;
+            resolve("ok");
+          }, 20);
+        })
+    );
+    const { translate } = provider.init({
+      apiURL: "https://api.example.com/translate",
+      concurrency: 2,
+    });
+
+    await translate({
+      text: ["a", "b", "c", "d", "e", "f", "g"],
+      sourceLocale: "en",
+      targetLocale: "es",
+    });
+
+    expect(peakInFlight).toBeLessThanOrEqual(2);
+    expect(peakInFlight).toBeGreaterThan(0);
+  });
+
+  test("defaults to concurrency 5 when not configured", async () => {
+    setupStrapi();
+    let peakInFlight = 0;
+    let inFlight = 0;
+    fetchTranslation.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          inFlight++;
+          peakInFlight = Math.max(peakInFlight, inFlight);
+          setTimeout(() => {
+            inFlight--;
+            resolve("ok");
+          }, 10);
+        })
+    );
+    const { translate } = init();
+
+    await translate({
+      text: Array.from({ length: 12 }, (_, i) => `item${i}`),
+      sourceLocale: "en",
+      targetLocale: "es",
+    });
+
+    expect(peakInFlight).toBeLessThanOrEqual(5);
+    expect(peakInFlight).toBeGreaterThan(1);
+  });
+});
 
 describe("init — timeoutMs forwarding (#7)", () => {
   test("forwards timeoutMs from providerOptions to fetchTranslation", async () => {
@@ -231,8 +339,8 @@ describe("init / translate — current v1.x behavior", () => {
     expect(result).toHaveLength(1);
   });
 
-  test("falls back to source text on partial failure but logs (#8)", async () => {
-    setupStrapi();
+  test("falls back to source text on partial failure but logs via strapi.log (#8 + #10)", async () => {
+    const { log } = setupStrapi();
     fetchTranslation
       .mockRejectedValueOnce(new Error("boom"))
       .mockResolvedValueOnce("mundo");
@@ -245,8 +353,11 @@ describe("init / translate — current v1.x behavior", () => {
     });
 
     expect(result).toEqual(["hello", "mundo"]);
-    expect(console.error).toHaveBeenCalledWith(
+    expect(log.warn).toHaveBeenCalledWith(
       expect.stringContaining("Failed to translate item 0")
+    );
+    expect(log.warn).toHaveBeenCalledWith(
+      expect.stringContaining("boom")
     );
   });
 
@@ -264,6 +375,61 @@ describe("init / translate — current v1.x behavior", () => {
         targetLocale: "es",
       })
     ).rejects.toThrow(AggregateError);
+  });
+
+  test("converts markdown to HTML and back for markdown format (#12)", async () => {
+    const { markdownToHtml, htmlToMarkdown } = setupStrapi();
+    markdownToHtml.mockResolvedValueOnce("<p>hello <strong>world</strong></p>");
+    fetchTranslation.mockResolvedValueOnce("<p>hola <strong>mundo</strong></p>");
+    htmlToMarkdown.mockResolvedValueOnce("hola **mundo**");
+    const { translate } = init();
+
+    const result = await translate({
+      text: "hello **world**",
+      sourceLocale: "en",
+      targetLocale: "es",
+      format: "markdown",
+    });
+
+    expect(markdownToHtml).toHaveBeenCalledWith("hello **world**");
+    expect(fetchTranslation).toHaveBeenCalledWith(
+      expect.objectContaining({ text: "<p>hello <strong>world</strong></p>" })
+    );
+    expect(htmlToMarkdown).toHaveBeenCalledWith(["<p>hola <strong>mundo</strong></p>"]);
+    expect(result).toEqual(["hola **mundo**"]);
+  });
+
+  test("ensures htmlToMarkdown result is wrapped in an array (#12)", async () => {
+    const { markdownToHtml, htmlToMarkdown } = setupStrapi();
+    markdownToHtml.mockResolvedValueOnce("<p>hello</p>");
+    fetchTranslation.mockResolvedValueOnce("<p>hola</p>");
+    htmlToMarkdown.mockResolvedValueOnce("hola");
+    const { translate } = init();
+
+    const result = await translate({
+      text: "hello",
+      sourceLocale: "en",
+      targetLocale: "es",
+      format: "markdown",
+    });
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toEqual(["hola"]);
+  });
+
+  test("does not invoke markdownToHtml for plain format", async () => {
+    const { markdownToHtml } = setupStrapi();
+    fetchTranslation.mockResolvedValueOnce("hola");
+    const { translate } = init();
+
+    await translate({
+      text: "hello",
+      sourceLocale: "en",
+      targetLocale: "es",
+      format: "plain",
+    });
+
+    expect(markdownToHtml).not.toHaveBeenCalled();
   });
 
   test("usage() is a no-op", async () => {

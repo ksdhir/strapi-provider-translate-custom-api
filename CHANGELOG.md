@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-04-26
+
+Reliability hardening — non-breaking. Drops in over v2.0.0 with no migration required.
+
+### Added
+
+- **`providerOptions.concurrency`** ([#9](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/9)) — caps in-flight requests during batch translation. Default `5`. A 50-string page now sends 5 at a time instead of 50 at once. Override per-deployment if your translation backend has different capacity. Implemented via a small inline `allSettledLimit` helper (~15 lines, no new dep). Input order is preserved in results regardless of resolution order.
+- **Markdown round-trip via HTML** ([#12](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/12)) — `format === 'markdown'` fields now go through `formatService.markdownToHtml` → POST as HTML → `formatService.htmlToMarkdown`. Mirrors the existing jsonb behavior. Custom API servers never see raw markdown semantics on the wire — they receive HTML, same as for blocks. Trade-off: any markdown features without HTML equivalents may be lost in conversion (same as for jsonb).
+
+### Changed
+
+- **Per-item failure logs now route through `strapi.log`** ([#10](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/10)). The `console.error` calls in the per-item fallback path are replaced with `strapi.log.warn`, so failures flow through Strapi's pino logger and respect the project's configured log level/format. Messages get a `[strapi-provider-translate-custom-api]` prefix for grep-ability across mixed plugin output. `apiHandler.js` no longer calls `console.*` at all.
+
 ## [2.0.0] - 2026-04-26
 
 > **Breaking release.** Consumer custom-API servers built against the v1.x wire contract must be updated before deploying v2.0.0. See README "Migration from v1.x" for a side-by-side example.
@@ -39,6 +52,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - No runtime changes. This release exists so that `v2.0.0` (the upcoming breaking wire-contract release) has somewhere to be recorded. Versions `1.0.0` through `1.0.27` are not retroactively documented here — see `git log` for that history.
 
-[Unreleased]: https://github.com/ksdhir/strapi-provider-translate-custom-api/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/ksdhir/strapi-provider-translate-custom-api/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/ksdhir/strapi-provider-translate-custom-api/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/ksdhir/strapi-provider-translate-custom-api/compare/v1.0.28...v2.0.0
 [1.0.28]: https://github.com/ksdhir/strapi-provider-translate-custom-api/compare/v1.0.27...v1.0.28

@@ -11,6 +11,8 @@ A translation provider for [`strapi-plugin-translate`](https://www.npmjs.com/pac
 - **Strapi blocks (jsonb) round-trip** — block editor content is converted to HTML for translation and back to blocks afterwards.
 - **Locale fallbacks** — built-in fallback table for providers that don't support specific locales (e.g. DeepL doesn't support `es-419` → falls back to `es`).
 - **Per-item resilience** — when one item in a batch fails, the source text is returned for that slot and the rest of the batch still succeeds. If *every* item fails, the batch throws an `AggregateError` so the host plugin sees the failure instead of silently presenting source-text fallbacks.
+- **Concurrency control** — batched fan-out is throttled (default 5 in flight) so a large page doesn't fire dozens of simultaneous POSTs at your translation backend. Configurable via `providerOptions.concurrency`.
+- **Markdown round-tripping** — markdown fields are converted to HTML before sending and back to markdown after, so your custom API only ever sees plain text or HTML on the wire (never raw markdown semantics).
 
 ## Installation
 
@@ -55,6 +57,7 @@ module.exports = ({ env }) => ({
 | `apiKey` | string | undefined | Sent as `Authorization: Bearer <apiKey>` when set. |
 | `translationProvider` | string | undefined | Forwarded as `?provider=...` and used to key the locale fallback table. |
 | `timeoutMs` | number | `30_000` | Per-request timeout. Hanging endpoints abort after this many milliseconds. |
+| `concurrency` | number | `5` | Max in-flight requests when translating a batch. Lower it if your translation backend rate-limits aggressively; raise it if your backend is fast and you have plenty of capacity. |
 
 ## Wire contract (v2.0.0)
 
@@ -75,6 +78,16 @@ Body: the raw text or HTML to translate
 - Query parameters are encoded via `URLSearchParams`. Locale codes, provider names, and any other interpolated values are properly percent-encoded.
 - `format=html` is added when the input passes `is-html()`. Plain text omits the parameter.
 - The request aborts after `timeoutMs` (default 30s) via `AbortSignal.timeout(...)`.
+- The provider runs at most `concurrency` items in flight at once (default 5) — large pages no longer fire 50+ simultaneous POSTs at your backend.
+
+### Per-format behavior
+
+| Field type / `format` | What hits the wire |
+|---|---|
+| `string`, `text`, `plain` | The raw text. `Content-Type: text/plain`. |
+| `html` (input is already HTML) | The HTML. `Content-Type: text/html`, `&format=html`. |
+| `markdown` | Converted to HTML before sending and back to markdown after. `Content-Type: text/html`, `&format=html`. Your custom API never sees raw markdown. |
+| `jsonb` (Strapi blocks) | Blocks → HTML (via the host plugin's `format` service) → POST → HTML response → blocks. `Content-Type: text/html`, `&format=html`. |
 
 ### Response
 
