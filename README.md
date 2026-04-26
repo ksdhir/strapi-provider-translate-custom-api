@@ -59,7 +59,11 @@ module.exports = ({ env }) => ({
 | `timeoutMs` | number | `30_000` | Per-request timeout. Hanging endpoints abort after this many milliseconds. |
 | `concurrency` | number | `5` | Max in-flight requests when translating a batch. Lower it if your translation backend rate-limits aggressively; raise it if your backend is fast and you have plenty of capacity. |
 
-## Wire contract (v2.0.0)
+## Custom API server contract
+
+<a id="custom-api-server-contract"></a>
+
+This section is the spec for the HTTP server you put behind `apiURL`. It covers query parameters, the HTTP method, status-code semantics, the response body shape, and a minimal Express implementation. It also doubles as the v2.0.0 wire contract — the rules below are what the provider has spoken on the wire since v2.0.0.
 
 The provider issues one POST per item in the batch.
 
@@ -91,9 +95,15 @@ Body: the raw text or HTML to translate
 
 ### Response
 
-- **2xx**: the response body is read via `response.text()` and used as the translated value. The body must be plain text — no JSON envelope.
-- **Non-2xx**: throws. Per-item failures fall back to source text (with a logged error); a batch where *every* item fails throws an `AggregateError`.
-- **Empty body**: throws as if it were a non-2xx error.
+The response body must be the translated string in the body — **plain text, no JSON envelope**. The provider reads the body via `response.text()` and uses it directly as the translation.
+
+| Status | Meaning | Provider behavior |
+|---|---|---|
+| `2xx` with non-empty body | Success. Body is the translated text. | Used as-is for the slot. |
+| `2xx` with empty body | Treated as failure. | Throws inside `fetchTranslation`; the slot falls back to source text and a warning is logged. If every item fails, the batch throws `AggregateError`. |
+| Any non-2xx (`4xx`, `5xx`) | Failure. The HTTP status is included in the thrown error. | Same as empty body — per-item fallback to source text + warning, or batch-level `AggregateError`. |
+
+Authentication errors should use `401`/`403` and return any human-readable message in the body. Validation failures (unsupported locale, missing field) should use `4xx`. Upstream translation backend errors should use `5xx`. The provider does not distinguish between these on the wire — they all funnel into the same fallback path — but accurate status codes show up in the warning logs and make operator debugging far easier.
 
 ### Example custom API server (Express, v2.0.0)
 
