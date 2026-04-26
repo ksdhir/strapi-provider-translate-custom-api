@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Memoize the `is-html` dynamic import** ([#25](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/25)). `apiHandler.js` previously did `await import("is-html")` on every `fetchTranslation` call. The import is now hoisted to module load and the resulting promise is cached, so the cost is paid once. Behavior is unchanged; this is a non-breaking micro-optimization.
 - **Drop the unused `priority` field from the `translate()` JSDoc** ([#27](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/27)). The host plugin passes `priority` through but this provider has never consumed it, and there's no defined wire semantic for forwarding it to a user's custom API. Documenting an option the provider doesn't act on was misleading; the field is removed from the JSDoc. No runtime change.
 
+### Documentation
+
+- **Custom API server contract section** ([#19](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/19)). Promoted the existing wire-contract spec into a labelled "Custom API server contract" section in the README with an explicit anchor and a status-code semantics table (2xx, 2xx-empty, non-2xx) covering provider behavior and operator guidance.
+- **Failure behavior section** ([#20](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/20)). Documented the two layers of failure handling: per-item silent fallback to source text via `strapi.log.warn` (since v2.1.0), and batch-level `AggregateError` when every item fails (since v2.0.0). Notes that no `silentFallback` opt-out exists today and would land as a separate `providerOptions` entry in a future minor release.
+- **Host plugin invariants in `translate()` JSDoc** ([#21](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/21)). Added a JSDoc block above `translate()` in `index.js` capturing the five invariants enforced by `strapi-plugin-translate` (text always an array, format homogeneous, length and order preserved, jsonb is nested arrays, priority is a no-op). Mirrored a short version in `CLAUDE.md`.
+- **README minor fixes** ([#22](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/22)). Verified no stale `url` references remain (the field is `apiURL`), added `concurrency` to the example config block so it matches the `providerOptions` table, and confirmed the Strapi v5 compatibility note is still accurate.
+
 ## [2.2.0] - 2026-04-26
 
 Package hygiene — non-breaking. Improves the npm presentation, the install-time signals consumers receive, and the size of the tarball they download.
