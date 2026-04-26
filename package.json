@@ -1,7 +1,15 @@
 {
   "name": "strapi-provider-translate-custom-api",
-  "version": "2.1.0",
+  "version": "2.2.0",
+  "description": "Custom HTTP-endpoint translation provider for strapi-plugin-translate. Route translation requests through any URL you control instead of being locked into DeepL/Google/ChatGPT.",
   "main": "index.js",
+  "files": [
+    "index.js",
+    "apiHandler.js",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
@@ -10,16 +18,33 @@
       "**/__tests__/**/*.test.js"
     ]
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": [
+    "strapi",
+    "strapi-plugin",
+    "strapi-provider",
+    "translate",
+    "translation",
+    "i18n",
+    "custom-api"
+  ],
+  "author": "Karan Singh Dhir <ksinghdhir1@gmail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/ksdhir/strapi-provider-translate-custom-api#readme",
+  "bugs": {
+    "url": "https://github.com/ksdhir/strapi-provider-translate-custom-api/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/ksdhir/strapi-provider-translate-custom-api.git"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "is-html": "^3.1.0"
+  },
+  "peerDependencies": {
+    "strapi-plugin-translate": "^1.4.0"
   },
   "devDependencies": {
     "jest": "^30.3.0"

@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-04-26
+
+Package hygiene — non-breaking. Improves the npm presentation, the install-time signals consumers receive, and the size of the tarball they download.
+
+### Added
+
+- **`peerDependencies` pin** ([#14](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/14)). Declares `strapi-plugin-translate ^1.4.0` so npm warns at install time when consumers pair this provider with an incompatible host plugin version. The host plugin's `format` service surface (which this provider depends on) has been stable since v1.3.0; the `^1.4.0` pin reflects what's actually been tested.
+- **`files` whitelist** in `package.json` ([#13](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/13)). Only the runtime files (`index.js`, `apiHandler.js`), `README.md`, `CHANGELOG.md`, and `LICENSE` ship to npm now. Tarball dropped from 14 files / 16.2 kB to 6 files / 8.4 kB. Tests, internal tooling, project-context files, and the legacy `test.js` scratch script no longer pollute consumer installs.
+- **`engines.node: ">=18"`** in `package.json` — formalizes the Node version assumption (we use `AbortSignal.timeout`, native `fetch`, `URLSearchParams`).
+
+### Changed
+
+- **`package.json` metadata cleanup** ([#13](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/13)). Populated `description`, `keywords`, `author`, `homepage`, `bugs`. Corrected `license` from `ISC` (default scaffold) to `MIT` to match the actual `LICENSE` file. The npm page now reflects what the package actually is.
+
 ## [2.1.0] - 2026-04-26
 
 Reliability hardening — non-breaking. Drops in over v2.0.0 with no migration required.
@@ -52,7 +66,8 @@ Reliability hardening — non-breaking. Drops in over v2.0.0 with no migration r
 
 - No runtime changes. This release exists so that `v2.0.0` (the upcoming breaking wire-contract release) has somewhere to be recorded. Versions `1.0.0` through `1.0.27` are not retroactively documented here — see `git log` for that history.
 
-[Unreleased]: https://github.com/ksdhir/strapi-provider-translate-custom-api/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/ksdhir/strapi-provider-translate-custom-api/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/ksdhir/strapi-provider-translate-custom-api/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/ksdhir/strapi-provider-translate-custom-api/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/ksdhir/strapi-provider-translate-custom-api/compare/v1.0.28...v2.0.0
 [1.0.28]: https://github.com/ksdhir/strapi-provider-translate-custom-api/compare/v1.0.27...v1.0.28
