@@ -153,13 +153,13 @@ describe("init / translate — current v1.x behavior", () => {
     expect(fetchTranslation).toHaveBeenCalledTimes(2);
   });
 
-  test("throws (wrapped) when sourceLocale or targetLocale is missing", async () => {
+  test("throws when sourceLocale or targetLocale is missing", async () => {
     setupStrapi();
     const { translate } = init();
 
     await expect(
       translate({ text: "hello", sourceLocale: "en" })
-    ).rejects.toThrow(/Translation failed/);
+    ).rejects.toThrow(/source and target locale/);
   });
 
   test("applies DeepL es-419 → es fallback", async () => {
@@ -231,7 +231,7 @@ describe("init / translate — current v1.x behavior", () => {
     expect(result).toHaveLength(1);
   });
 
-  test("returns original text per item on per-item failure (current swallow behavior)", async () => {
+  test("falls back to source text on partial failure but logs (#8)", async () => {
     setupStrapi();
     fetchTranslation
       .mockRejectedValueOnce(new Error("boom"))
@@ -245,6 +245,25 @@ describe("init / translate — current v1.x behavior", () => {
     });
 
     expect(result).toEqual(["hello", "mundo"]);
+    expect(console.error).toHaveBeenCalledWith(
+      expect.stringContaining("Failed to translate item 0")
+    );
+  });
+
+  test("throws AggregateError when every item fails (#8)", async () => {
+    setupStrapi();
+    fetchTranslation
+      .mockRejectedValueOnce(new Error("boom1"))
+      .mockRejectedValueOnce(new Error("boom2"));
+    const { translate } = init();
+
+    await expect(
+      translate({
+        text: ["hello", "world"],
+        sourceLocale: "en",
+        targetLocale: "es",
+      })
+    ).rejects.toThrow(AggregateError);
   });
 
   test("usage() is a no-op", async () => {

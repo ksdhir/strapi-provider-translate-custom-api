@@ -38,30 +38,26 @@ const fetchTranslation = async ({
     headers["Authorization"] = `Bearer ${apiKey}`;
   }
 
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: text,
-      signal: AbortSignal.timeout(timeoutMs ?? DEFAULT_TIMEOUT_MS),
-    });
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: text,
+    signal: AbortSignal.timeout(timeoutMs ?? DEFAULT_TIMEOUT_MS),
+  });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
-    }
-
-    const data = await response.text();
-
-    if (!data) {
-      throw new Error("No translation found");
-    }
-
-    return data;
-  } catch (error) {
-    console.error(`Failed to fetch translation for: "${text}"`);
-    console.error(error);
-    return text; // Fallback to original text on failure
+  if (!response.ok) {
+    throw new Error(
+      `Translation API responded with HTTP ${response.status} ${response.statusText}`
+    );
   }
+
+  const data = await response.text();
+
+  if (!data) {
+    throw new Error("Translation API responded with an empty body");
+  }
+
+  return data;
 };
 
 module.exports = { fetchTranslation, DEFAULT_TIMEOUT_MS };

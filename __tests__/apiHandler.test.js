@@ -121,43 +121,43 @@ describe("fetchTranslation — current v1.x wire contract", () => {
     expect(result).toBe("hola");
   });
 
-  test("returns original text on HTTP error (current swallow behavior)", async () => {
+  test("throws on HTTP error (#8 — no longer swallowed)", async () => {
     mockFetchOnce("oops", { ok: false, status: 500 });
 
-    const result = await fetchTranslation({
-      apiURL: "https://api.example.com/translate",
-      text: "hello",
-      sourceLocale: "en",
-      targetLocale: "es",
-    });
-
-    expect(result).toBe("hello");
+    await expect(
+      fetchTranslation({
+        apiURL: "https://api.example.com/translate",
+        text: "hello",
+        sourceLocale: "en",
+        targetLocale: "es",
+      })
+    ).rejects.toThrow(/HTTP 500/);
   });
 
-  test("returns original text on network error (current swallow behavior)", async () => {
+  test("throws on network error (#8 — no longer swallowed)", async () => {
     global.fetch = jest.fn().mockRejectedValueOnce(new Error("ECONNREFUSED"));
 
-    const result = await fetchTranslation({
-      apiURL: "https://api.example.com/translate",
-      text: "hello",
-      sourceLocale: "en",
-      targetLocale: "es",
-    });
-
-    expect(result).toBe("hello");
+    await expect(
+      fetchTranslation({
+        apiURL: "https://api.example.com/translate",
+        text: "hello",
+        sourceLocale: "en",
+        targetLocale: "es",
+      })
+    ).rejects.toThrow(/ECONNREFUSED/);
   });
 
-  test("returns original text on empty response (current swallow behavior)", async () => {
+  test("throws on empty response body (#8 — no longer swallowed)", async () => {
     mockFetchOnce("");
 
-    const result = await fetchTranslation({
-      apiURL: "https://api.example.com/translate",
-      text: "hello",
-      sourceLocale: "en",
-      targetLocale: "es",
-    });
-
-    expect(result).toBe("hello");
+    await expect(
+      fetchTranslation({
+        apiURL: "https://api.example.com/translate",
+        text: "hello",
+        sourceLocale: "en",
+        targetLocale: "es",
+      })
+    ).rejects.toThrow(/empty body/);
   });
 
   test("throws synchronously when apiURL is missing", async () => {
