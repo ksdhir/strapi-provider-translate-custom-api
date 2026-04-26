@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- **Memoize the `is-html` dynamic import** ([#25](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/25)). `apiHandler.js` previously did `await import("is-html")` on every `fetchTranslation` call. The import is now hoisted to module load and the resulting promise is cached, so the cost is paid once. Behavior is unchanged; this is a non-breaking micro-optimization.
+- **Drop the unused `priority` field from the `translate()` JSDoc** ([#27](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/27)). The host plugin passes `priority` through but this provider has never consumed it, and there's no defined wire semantic for forwarding it to a user's custom API. Documenting an option the provider doesn't act on was misleading; the field is removed from the JSDoc. No runtime change.
+
 ## [2.2.0] - 2026-04-26
 
 Package hygiene — non-breaking. Improves the npm presentation, the install-time signals consumers receive, and the size of the tarball they download.

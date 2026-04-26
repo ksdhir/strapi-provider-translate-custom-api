@@ -1,5 +1,12 @@
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+// `is-html` is ESM-only, so we have to use dynamic import from this CJS
+// module. Memoize the resulting promise so we pay the import cost once at
+// module load instead of on every fetchTranslation call (issue #25).
+let isHtmlPromise;
+const getIsHtml = () =>
+  (isHtmlPromise ??= import("is-html").then((m) => m.default));
+
 const fetchTranslation = async ({
   apiURL,
   apiKey,
@@ -9,8 +16,7 @@ const fetchTranslation = async ({
   translationProvider,
   timeoutMs,
 }) => {
-  // dynamic import html
-  const isHTML = (await import("is-html")).default;
+  const isHTML = await getIsHtml();
 
   if (!apiURL || !text || !targetLocale) {
     throw new Error("API URL, text, and target locale must be provided");

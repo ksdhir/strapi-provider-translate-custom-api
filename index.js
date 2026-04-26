@@ -66,7 +66,6 @@ module.exports = {
        *  text:string|string[],
        *  sourceLocale: string,
        *  targetLocale: string,
-       *  priority: number,
        *  format?: 'plain'|'markdown'|'html'|'jsonb'
        * }} options all translate options
        * @returns {string[]|object[]} the input text(s) translated
