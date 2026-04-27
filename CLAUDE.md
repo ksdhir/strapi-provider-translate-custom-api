@@ -13,6 +13,7 @@ The user's own translation backend lives behind `apiURL` and is expected to acce
 `strapi-plugin-translate` discovers providers by their package name (`strapi-provider-translate-<x>`) and calls `init(providerOptions, pluginConfig)` exported from `index.js`. `init` must return an object exposing `translate(options)` and `usage()`. The plugin is wired up by the consuming Strapi project in `config/plugins.js` — see `README.md` for the example.
 
 `providerOptions` (set by the consuming project):
+
 - `apiURL` — POST endpoint for translations (required)
 - `apiKey` — optional, appended as `?apiKey=` query param
 - `translationProvider` — optional label forwarded as `?provider=`; also keys the fallback table
@@ -71,8 +72,13 @@ README states Strapi v4; v5 is untested. The `strapi.plugin('translate').service
 
 ## Local testing
 
-There is no automated test runner (`npm test` exits 1). To exercise changes:
-- Bump the version in `package.json`, publish, and pull into a real Strapi project, **or**
-- `npm link` into a Strapi project that already has `strapi-plugin-translate` installed and configured.
+`npm test` runs the Jest suite under `__tests__/` (46 tests as of v2.2.0). The `format` service from the host plugin is mocked via `global.strapi`, so the suite runs standalone without a real Strapi process. Use `--experimental-vm-modules` (the script in `package.json` already does) so the dynamic `import("is-html")` works.
 
-`test.js` is a scratch script — it will throw on the `strapi.plugin(...)` call unless you stub the global `strapi` object first.
+For end-to-end verification against a real Strapi instance:
+
+- `npm link` into a Strapi project that already has `strapi-plugin-translate` installed and configured, **or**
+- Bump the version in `package.json`, publish, and `npm install` into the consuming project.
+
+## Package layout decisions
+
+- **`package-lock.json` is committed** (kept, not dropped). The CI workflow in `.github/workflows/ci.yml` uses `npm ci`, which requires a lockfile. Reproducible CI builds outweigh the "libraries don't ship lockfiles" convention; consumers are unaffected since the `files` whitelist in `package.json` excludes the lockfile from the published tarball.
