@@ -46,9 +46,7 @@ module.exports = {
     } = providerOptions;
 
     if (!apiURL) {
-      throw new Error(
-        "strapi-provider-translate-custom-api: providerOptions.apiURL is required"
-      );
+      throw new Error("strapi-provider-translate-custom-api: providerOptions.apiURL is required");
     }
 
     try {
@@ -109,7 +107,7 @@ module.exports = {
           return [];
         }
 
-        const formatService = strapi.plugin('translate').service('format');
+        const formatService = strapi.plugin("translate").service("format");
         let isBlock = false;
         let isMarkdown = false;
 
@@ -117,10 +115,10 @@ module.exports = {
         // consumer's API only ever sees plain text or HTML, never blocks
         // or markdown semantics. Mirrors the host plugin's own conversion
         // services.
-        if (Array.isArray(text) && format === 'jsonb') {
+        if (Array.isArray(text) && format === "jsonb") {
           text = await formatService.blockToHtml(text);
           isBlock = true;
-        } else if (format === 'markdown') {
+        } else if (format === "markdown") {
           text = await formatService.markdownToHtml(text);
           isMarkdown = true;
         }
@@ -137,9 +135,7 @@ module.exports = {
         // check if the target language has a fallback
         const fallbacks = fallbackLanguages[translationProvider];
         if (fallbacks) {
-          const fallback = fallbacks.find(
-              (item) => item.source === targetLocale
-          );
+          const fallback = fallbacks.find((item) => item.source === targetLocale);
           if (fallback) {
             targetLocale = fallback.fallback;
           }

@@ -10,7 +10,7 @@ A translation provider for [`strapi-plugin-translate`](https://www.npmjs.com/pac
 - **HTML auto-detection** — input is sniffed via `is-html`; HTML payloads are flagged on the wire so your server can handle them differently from plain text.
 - **Strapi blocks (jsonb) round-trip** — block editor content is converted to HTML for translation and back to blocks afterwards.
 - **Locale fallbacks** — built-in fallback table for providers that don't support specific locales (e.g. DeepL doesn't support `es-419` → falls back to `es`).
-- **Per-item resilience** — when one item in a batch fails, the source text is returned for that slot and the rest of the batch still succeeds. If *every* item fails, the batch throws an `AggregateError` so the host plugin sees the failure instead of silently presenting source-text fallbacks.
+- **Per-item resilience** — when one item in a batch fails, the source text is returned for that slot and the rest of the batch still succeeds. If _every_ item fails, the batch throws an `AggregateError` so the host plugin sees the failure instead of silently presenting source-text fallbacks.
 - **Concurrency control** — batched fan-out is throttled (default 5 in flight) so a large page doesn't fire dozens of simultaneous POSTs at your translation backend. Configurable via `providerOptions.concurrency`.
 - **Markdown round-tripping** — markdown fields are converted to HTML before sending and back to markdown after, so your custom API only ever sees plain text or HTML on the wire (never raw markdown semantics).
 
@@ -31,11 +31,11 @@ module.exports = ({ env }) => ({
     config: {
       provider: "custom-api",
       providerOptions: {
-        apiURL: env("TRANSLATION_API_URL"),     // required
-        apiKey: env("TRANSLATION_API_KEY"),      // optional; sent as Bearer token
-        translationProvider: "MyProvider",       // optional label, see fallback table
-        timeoutMs: 30_000,                       // optional, default 30s
-        concurrency: 5,                          // optional, default 5
+        apiURL: env("TRANSLATION_API_URL"), // required
+        apiKey: env("TRANSLATION_API_KEY"), // optional; sent as Bearer token
+        translationProvider: "MyProvider", // optional label, see fallback table
+        timeoutMs: 30_000, // optional, default 30s
+        concurrency: 5, // optional, default 5
       },
       translatedFieldTypes: [
         "string",
@@ -52,13 +52,13 @@ module.exports = ({ env }) => ({
 
 ### `providerOptions`
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `apiURL` | string | — (required) | POST endpoint for translations. Validated at init time via `new URL(...)`. |
-| `apiKey` | string | undefined | Sent as `Authorization: Bearer <apiKey>` when set. |
-| `translationProvider` | string | undefined | Forwarded as `?provider=...` and used to key the locale fallback table. |
-| `timeoutMs` | number | `30_000` | Per-request timeout. Hanging endpoints abort after this many milliseconds. |
-| `concurrency` | number | `5` | Max in-flight requests when translating a batch. Lower it if your translation backend rate-limits aggressively; raise it if your backend is fast and you have plenty of capacity. |
+| Option                | Type   | Default      | Description                                                                                                                                                                       |
+| --------------------- | ------ | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apiURL`              | string | — (required) | POST endpoint for translations. Validated at init time via `new URL(...)`.                                                                                                        |
+| `apiKey`              | string | undefined    | Sent as `Authorization: Bearer <apiKey>` when set.                                                                                                                                |
+| `translationProvider` | string | undefined    | Forwarded as `?provider=...` and used to key the locale fallback table.                                                                                                           |
+| `timeoutMs`           | number | `30_000`     | Per-request timeout. Hanging endpoints abort after this many milliseconds.                                                                                                        |
+| `concurrency`         | number | `5`          | Max in-flight requests when translating a batch. Lower it if your translation backend rate-limits aggressively; raise it if your backend is fast and you have plenty of capacity. |
 
 ## Custom API server contract
 
@@ -87,22 +87,22 @@ Body: the raw text or HTML to translate
 
 ### Per-format behavior
 
-| Field type / `format` | What hits the wire |
-|---|---|
-| `string`, `text`, `plain` | The raw text. `Content-Type: text/plain`. |
-| `html` (input is already HTML) | The HTML. `Content-Type: text/html`, `&format=html`. |
-| `markdown` | Converted to HTML before sending and back to markdown after. `Content-Type: text/html`, `&format=html`. Your custom API never sees raw markdown. |
-| `jsonb` (Strapi blocks) | Blocks → HTML (via the host plugin's `format` service) → POST → HTML response → blocks. `Content-Type: text/html`, `&format=html`. |
+| Field type / `format`          | What hits the wire                                                                                                                               |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `string`, `text`, `plain`      | The raw text. `Content-Type: text/plain`.                                                                                                        |
+| `html` (input is already HTML) | The HTML. `Content-Type: text/html`, `&format=html`.                                                                                             |
+| `markdown`                     | Converted to HTML before sending and back to markdown after. `Content-Type: text/html`, `&format=html`. Your custom API never sees raw markdown. |
+| `jsonb` (Strapi blocks)        | Blocks → HTML (via the host plugin's `format` service) → POST → HTML response → blocks. `Content-Type: text/html`, `&format=html`.               |
 
 ### Response
 
 The response body must be the translated string in the body — **plain text, no JSON envelope**. The provider reads the body via `response.text()` and uses it directly as the translation.
 
-| Status | Meaning | Provider behavior |
-|---|---|---|
-| `2xx` with non-empty body | Success. Body is the translated text. | Used as-is for the slot. |
-| `2xx` with empty body | Treated as failure. | Throws inside `fetchTranslation`; the slot falls back to source text and a warning is logged. If every item fails, the batch throws `AggregateError`. |
-| Any non-2xx (`4xx`, `5xx`) | Failure. The HTTP status is included in the thrown error. | Same as empty body — per-item fallback to source text + warning, or batch-level `AggregateError`. |
+| Status                     | Meaning                                                   | Provider behavior                                                                                                                                     |
+| -------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `2xx` with non-empty body  | Success. Body is the translated text.                     | Used as-is for the slot.                                                                                                                              |
+| `2xx` with empty body      | Treated as failure.                                       | Throws inside `fetchTranslation`; the slot falls back to source text and a warning is logged. If every item fails, the batch throws `AggregateError`. |
+| Any non-2xx (`4xx`, `5xx`) | Failure. The HTTP status is included in the thrown error. | Same as empty body — per-item fallback to source text + warning, or batch-level `AggregateError`.                                                     |
 
 Authentication errors should use `401`/`403` and return any human-readable message in the body. Validation failures (unsupported locale, missing field) should use `4xx`. Upstream translation backend errors should use `5xx`. The provider does not distinguish between these on the wire — they all funnel into the same fallback path — but accurate status codes show up in the warning logs and make operator debugging far easier.
 
@@ -153,19 +153,19 @@ This was introduced in v2.0.0 ([#8](https://github.com/ksdhir/strapi-provider-tr
 
 ### No silent-fallback opt-out today
 
-There is no `silentFallback: false` flag that converts the per-item warning into a thrown error. If you need that behavior — for example, you'd rather have the whole batch fail loudly than ship source-text fallbacks to your editors — open an issue describing the use case. It would land as a new entry in `providerOptions` in a future minor release; this PR documents the *current* behavior only.
+There is no `silentFallback: false` flag that converts the per-item warning into a thrown error. If you need that behavior — for example, you'd rather have the whole batch fail loudly than ship source-text fallbacks to your editors — open an issue describing the use case. It would land as a new entry in `providerOptions` in a future minor release; this PR documents the _current_ behavior only.
 
 ## Migration from v1.x
 
 If you have a custom API server speaking the v1.x contract, you need to update it before installing v2.0.0. The differences:
 
-| Concern | v1.x | v2.0.0 |
-|---|---|---|
-| API key location | `?apiKey=...` query param | `Authorization: Bearer <key>` header |
-| Query encoding | Raw template-string interpolation | `URLSearchParams` (proper percent-encoding) |
-| `Content-Type` on POST | Not set | `text/plain` or `text/html` |
-| Timeout | None (could hang forever) | 30s default, configurable via `timeoutMs` |
-| Failures | Silently returned source text and reported success | Per-item: log + source-text fallback. Batch-level all-fail: throws |
+| Concern                | v1.x                                               | v2.0.0                                                             |
+| ---------------------- | -------------------------------------------------- | ------------------------------------------------------------------ |
+| API key location       | `?apiKey=...` query param                          | `Authorization: Bearer <key>` header                               |
+| Query encoding         | Raw template-string interpolation                  | `URLSearchParams` (proper percent-encoding)                        |
+| `Content-Type` on POST | Not set                                            | `text/plain` or `text/html`                                        |
+| Timeout                | None (could hang forever)                          | 30s default, configurable via `timeoutMs`                          |
+| Failures               | Silently returned source text and reported success | Per-item: log + source-text fallback. Batch-level all-fail: throws |
 
 ### Server-side migration example
 

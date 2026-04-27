@@ -4,8 +4,7 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 // module. Memoize the resulting promise so we pay the import cost once at
 // module load instead of on every fetchTranslation call (issue #25).
 let isHtmlPromise;
-const getIsHtml = () =>
-  (isHtmlPromise ??= import("is-html").then((m) => m.default));
+const getIsHtml = () => (isHtmlPromise ??= import("is-html").then((m) => m.default));
 
 const fetchTranslation = async ({
   apiURL,

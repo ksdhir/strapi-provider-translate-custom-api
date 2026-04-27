@@ -52,10 +52,13 @@ describe("translate — concurrency limit (#9)", () => {
         new Promise((resolve) => {
           // Resolve in reverse: longer text waits longer
           const delay = (10 - args.text.length) * 5;
-          setTimeout(() => {
-            resolveOrder.push(args.text);
-            resolve(`tr-${args.text}`);
-          }, Math.max(0, delay));
+          setTimeout(
+            () => {
+              resolveOrder.push(args.text);
+              resolve(`tr-${args.text}`);
+            },
+            Math.max(0, delay)
+          );
         })
     );
     const { translate } = init();
@@ -67,21 +70,9 @@ describe("translate — concurrency limit (#9)", () => {
     });
 
     // Output order matches input order (positional)
-    expect(result).toEqual([
-      "tr-hello",
-      "tr-hi",
-      "tr-hey there",
-      "tr-yo",
-      "tr-good morning",
-    ]);
+    expect(result).toEqual(["tr-hello", "tr-hi", "tr-hey there", "tr-yo", "tr-good morning"]);
     // But resolution order was different — proves the queue interleaved
-    expect(resolveOrder).not.toEqual([
-      "hello",
-      "hi",
-      "hey there",
-      "yo",
-      "good morning",
-    ]);
+    expect(resolveOrder).not.toEqual(["hello", "hi", "hey there", "yo", "good morning"]);
   });
 
   test("runs at most `concurrency` items in flight at once", async () => {
@@ -157,9 +148,7 @@ describe("init — timeoutMs forwarding (#7)", () => {
       targetLocale: "es",
     });
 
-    expect(fetchTranslation).toHaveBeenCalledWith(
-      expect.objectContaining({ timeoutMs: 5_000 })
-    );
+    expect(fetchTranslation).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: 5_000 }));
   });
 
   test("forwards undefined when timeoutMs is not configured (default applies in apiHandler)", async () => {
@@ -187,9 +176,7 @@ describe("init — apiURL validation (#11)", () => {
   });
 
   test("throws when apiURL has no scheme", () => {
-    expect(() => provider.init({ apiURL: "example.com/translate" })).toThrow(
-      /not a valid URL/
-    );
+    expect(() => provider.init({ apiURL: "example.com/translate" })).toThrow(/not a valid URL/);
   });
 
   test("throws when apiURL is malformed", () => {
@@ -197,15 +184,11 @@ describe("init — apiURL validation (#11)", () => {
   });
 
   test("preserves the bad URL value in the error message", () => {
-    expect(() =>
-      provider.init({ apiURL: "not a url" })
-    ).toThrow(/not a url/);
+    expect(() => provider.init({ apiURL: "not a url" })).toThrow(/not a url/);
   });
 
   test("accepts a valid http URL", () => {
-    expect(() =>
-      provider.init({ apiURL: "http://api.example.com/translate" })
-    ).not.toThrow();
+    expect(() => provider.init({ apiURL: "http://api.example.com/translate" })).not.toThrow();
   });
 
   test("accepts a valid https URL with path and query", () => {
@@ -246,9 +229,7 @@ describe("init / translate — current v1.x behavior", () => {
 
   test("translates an array of strings in parallel", async () => {
     setupStrapi();
-    fetchTranslation
-      .mockResolvedValueOnce("hola")
-      .mockResolvedValueOnce("mundo");
+    fetchTranslation.mockResolvedValueOnce("hola").mockResolvedValueOnce("mundo");
     const { translate } = init();
 
     const result = await translate({
@@ -265,9 +246,9 @@ describe("init / translate — current v1.x behavior", () => {
     setupStrapi();
     const { translate } = init();
 
-    await expect(
-      translate({ text: "hello", sourceLocale: "en" })
-    ).rejects.toThrow(/source and target locale/);
+    await expect(translate({ text: "hello", sourceLocale: "en" })).rejects.toThrow(
+      /source and target locale/
+    );
   });
 
   test("applies DeepL es-419 → es fallback", async () => {
@@ -281,9 +262,7 @@ describe("init / translate — current v1.x behavior", () => {
       targetLocale: "es-419",
     });
 
-    expect(fetchTranslation).toHaveBeenCalledWith(
-      expect.objectContaining({ targetLocale: "es" })
-    );
+    expect(fetchTranslation).toHaveBeenCalledWith(expect.objectContaining({ targetLocale: "es" }));
   });
 
   test("does not apply fallback when translationProvider is not DeepL", async () => {
@@ -341,9 +320,7 @@ describe("init / translate — current v1.x behavior", () => {
 
   test("falls back to source text on partial failure but logs via strapi.log (#8 + #10)", async () => {
     const { log } = setupStrapi();
-    fetchTranslation
-      .mockRejectedValueOnce(new Error("boom"))
-      .mockResolvedValueOnce("mundo");
+    fetchTranslation.mockRejectedValueOnce(new Error("boom")).mockResolvedValueOnce("mundo");
     const { translate } = init();
 
     const result = await translate({
@@ -353,12 +330,8 @@ describe("init / translate — current v1.x behavior", () => {
     });
 
     expect(result).toEqual(["hello", "mundo"]);
-    expect(log.warn).toHaveBeenCalledWith(
-      expect.stringContaining("Failed to translate item 0")
-    );
-    expect(log.warn).toHaveBeenCalledWith(
-      expect.stringContaining("boom")
-    );
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining("Failed to translate item 0"));
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining("boom"));
   });
 
   test("throws AggregateError when every item fails (#8)", async () => {
