@@ -35,6 +35,7 @@ module.exports = ({ env }) => ({
         apiKey: env("TRANSLATION_API_KEY"),      // optional; sent as Bearer token
         translationProvider: "MyProvider",       // optional label, see fallback table
         timeoutMs: 30_000,                       // optional, default 30s
+        concurrency: 5,                          // optional, default 5
       },
       translatedFieldTypes: [
         "string",
@@ -59,7 +60,11 @@ module.exports = ({ env }) => ({
 | `timeoutMs` | number | `30_000` | Per-request timeout. Hanging endpoints abort after this many milliseconds. |
 | `concurrency` | number | `5` | Max in-flight requests when translating a batch. Lower it if your translation backend rate-limits aggressively; raise it if your backend is fast and you have plenty of capacity. |
 
-## Wire contract (v2.0.0)
+## Custom API server contract
+
+<a id="custom-api-server-contract"></a>
+
+This section is the spec for the HTTP server you put behind `apiURL`. It covers query parameters, the HTTP method, status-code semantics, the response body shape, and a minimal Express implementation. It also doubles as the v2.0.0 wire contract — the rules below are what the provider has spoken on the wire since v2.0.0.
 
 The provider issues one POST per item in the batch.
 
@@ -91,9 +96,15 @@ Body: the raw text or HTML to translate
 
 ### Response
 
-- **2xx**: the response body is read via `response.text()` and used as the translated value. The body must be plain text — no JSON envelope.
-- **Non-2xx**: throws. Per-item failures fall back to source text (with a logged error); a batch where *every* item fails throws an `AggregateError`.
-- **Empty body**: throws as if it were a non-2xx error.
+The response body must be the translated string in the body — **plain text, no JSON envelope**. The provider reads the body via `response.text()` and uses it directly as the translation.
+
+| Status | Meaning | Provider behavior |
+|---|---|---|
+| `2xx` with non-empty body | Success. Body is the translated text. | Used as-is for the slot. |
+| `2xx` with empty body | Treated as failure. | Throws inside `fetchTranslation`; the slot falls back to source text and a warning is logged. If every item fails, the batch throws `AggregateError`. |
+| Any non-2xx (`4xx`, `5xx`) | Failure. The HTTP status is included in the thrown error. | Same as empty body — per-item fallback to source text + warning, or batch-level `AggregateError`. |
+
+Authentication errors should use `401`/`403` and return any human-readable message in the body. Validation failures (unsupported locale, missing field) should use `4xx`. Upstream translation backend errors should use `5xx`. The provider does not distinguish between these on the wire — they all funnel into the same fallback path — but accurate status codes show up in the warning logs and make operator debugging far easier.
 
 ### Example custom API server (Express, v2.0.0)
 
@@ -117,6 +128,32 @@ app.post("/translate", async (req, res) => {
 
 app.listen(3000);
 ```
+
+## Failure behavior
+
+Translation failures are handled at two distinct layers — per-item and per-batch — and the provider deliberately reports them differently.
+
+### Per-item: silent fallback to source text (since v2.1.0)
+
+When a single item in a batch fails (non-2xx response, network error, timeout, empty response body), the provider:
+
+1. Catches the error inside `allSettledLimit`.
+2. Logs a warning via `strapi.log.warn` with the prefix `[strapi-provider-translate-custom-api]`, the array index of the failed item, the original source text, and the error message.
+3. Substitutes the original source text into that slot of the result array so the rest of the batch still completes.
+
+This means a content editor saving a page where one field couldn't be translated will see source-language text in that field — not an error, not an empty string. The batch returns `2xx` to the host plugin and the editor can manually retranslate the affected field. The `strapi.log.warn` route (added in v2.1.0, [#10](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/10)) flows through Strapi's pino logger, so failures respect your project's configured log level and format and can be surfaced in dashboards alongside the rest of your Strapi logs.
+
+Before v2.1.0 these failures were emitted via `console.error`. Before v2.0.0 they were silently swallowed entirely.
+
+### Batch-level: throws `AggregateError` when every item fails (since v2.0.0)
+
+If **every** item in the batch fails (e.g. your custom API is down, the API key is wrong, the URL is misrouted), the provider throws an `AggregateError` whose `errors` field contains the per-item rejection reasons. The host plugin sees the error and surfaces it to the editor instead of silently presenting an entire page of source-text fallbacks that look like successful translations.
+
+This was introduced in v2.0.0 ([#8](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/8)) to fix the v1.x behavior where catastrophic failures were indistinguishable from successful translations.
+
+### No silent-fallback opt-out today
+
+There is no `silentFallback: false` flag that converts the per-item warning into a thrown error. If you need that behavior — for example, you'd rather have the whole batch fail loudly than ship source-text fallbacks to your editors — open an issue describing the use case. It would land as a new entry in `providerOptions` in a future minor release; this PR documents the *current* behavior only.
 
 ## Migration from v1.x
 

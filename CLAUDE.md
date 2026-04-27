@@ -47,6 +47,16 @@ Response: <raw translated text>   (text/plain, response.text())
 
 Non-2xx responses throw inside `fetchTranslation`, which then catches and returns the original text.
 
+## Host plugin invariants
+
+These are guaranteed by `strapi-plugin-translate`'s service layer (`server/services/translate.js`) and the provider relies on them. Don't break them. Full prose lives in the JSDoc above `translate()` in `index.js`; the short list:
+
+1. `text` is **always an array** when called from the host plugin. The single-string normalization in `translate()` is only for ad-hoc callers.
+2. `format` is **homogeneous within a call** — never mixed.
+3. The returned array **must match input length and order**. Host plugin maps results back by index; `allSettledLimit` preserves order even when items resolve out of sequence.
+4. For `format === 'jsonb'`, each element of `text` is itself an array of blocks (`[[blocksA], [blocksB], ...]`). `formatService.blockToHtml` / `htmlToBlock` handle the nested shape.
+5. `priority` is end-to-end plumbing only — currently a no-op everywhere.
+
 ## Design choices worth knowing
 
 - **Plain-text response, not JSON.** The custom API must respond with the translated string in the body — no JSON envelope.

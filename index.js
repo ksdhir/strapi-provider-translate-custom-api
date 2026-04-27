@@ -62,13 +62,44 @@ module.exports = {
 
     return {
       /**
+       * Translate a batch of strings (or block arrays) for the host plugin.
+       *
+       * Host plugin invariants
+       * ----------------------
+       * The following invariants are enforced by `strapi-plugin-translate`'s
+       * service layer (see `strapi-plugin-translate/server/services/translate.js`).
+       * They're documented here so contributors don't accidentally break the
+       * provider's contract with the host:
+       *
+       * 1. `text` is **always an array** when called from the host plugin.
+       *    The single-string convenience path (`text` → `[text]`) below
+       *    exists only for ad-hoc consumers; the host always sends an array.
+       * 2. `format` is **homogeneous within a call** — the host never mixes
+       *    `'plain'`, `'markdown'`, `'html'`, and `'jsonb'` items in one
+       *    batch. The format conversion paths (markdown → HTML, blocks →
+       *    HTML) safely apply to the whole array.
+       * 3. The returned array **must match input length and order** — the
+       *    host maps results back to the originating fields by index.
+       *    `allSettledLimit` preserves order even when items resolve out of
+       *    sequence; do not switch to `Promise.race` or any unordered fan-out.
+       * 4. For `format === 'jsonb'`, each array element is itself an array
+       *    of Strapi blocks (`text` is `[[blocksA], [blocksB], ...]`).
+       *    `formatService.blockToHtml` accepts that nested shape and yields
+       *    a flat array of HTML strings; `formatService.htmlToBlock` does
+       *    the inverse on the way back.
+       * 5. `priority` is end-to-end plumbing only — currently a **no-op**
+       *    everywhere (host plugin and this provider). Don't gate logic
+       *    on it without coordinating with the host.
+       *
        * @param {{
-       *  text:string|string[],
+       *  text: string | string[],
        *  sourceLocale: string,
        *  targetLocale: string,
-       *  format?: 'plain'|'markdown'|'html'|'jsonb'
+       *  format?: 'plain' | 'markdown' | 'html' | 'jsonb'
        * }} options all translate options
-       * @returns {string[]|object[]} the input text(s) translated
+       * @returns {Promise<string[] | object[]>} the input text(s) translated.
+       *   Length and order match `options.text`. For `format === 'jsonb'`,
+       *   each element is an array of Strapi blocks.
        */
       async translate(options) {
         let { sourceLocale, targetLocale, format } = options;
