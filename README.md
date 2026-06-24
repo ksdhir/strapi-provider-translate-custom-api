@@ -201,8 +201,9 @@ app.post("/translate", async (req, res) => {
 
 ## Compatibility
 
-- Requires Strapi v4. Strapi v5 is not yet supported because the host plugin (`strapi-plugin-translate`) does not yet ship a v5-compatible release.
-- Declared as a `peerDependency` on `strapi-plugin-translate ^1.4.0`. npm will warn if you install this provider against an incompatible host plugin version. (The same surface — `format.blockToHtml`, `format.htmlToBlock`, `format.markdownToHtml`, `format.htmlToMarkdown` — has been stable in the host plugin since v1.3.0; the `^1.4.0` pin matches what the provider has actually been tested against.)
+- **Strapi 4 and Strapi 5.** Works with `strapi-plugin-translate` v1.x (Strapi 4) and its v2.x line (Strapi 5) — the same provider build supports both.
+- Declared as a `peerDependency` on `strapi-plugin-translate ^1.4.0 || ^2.0.0-next.4`. npm will warn if you install this provider against an incompatible host plugin version. The provider depends only on the host's `format` service surface — `format.blockToHtml`, `format.htmlToBlock`, `format.markdownToHtml`, `format.htmlToMarkdown` — plus the provider contract (`init() → { translate, usage }`). Both are identical in the plugin's v1.x and v2.x lines (verified against `strapi-plugin-translate@2.0.0-next.4`), so no code changes were needed for Strapi 5.
+- The plugin's Strapi 5 line (`2.0.0-next.x`) is currently a **prerelease** — pin it and run an end-to-end translate check before relying on it in production.
 
 ## License
 

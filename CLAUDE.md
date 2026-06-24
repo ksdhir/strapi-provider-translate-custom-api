@@ -68,7 +68,7 @@ These are guaranteed by `strapi-plugin-translate`'s service layer (`server/servi
 
 ## Compatibility
 
-README states Strapi v4; v5 is untested. The `strapi.plugin('translate').service('format')` call assumes the host plugin's service shape — if `strapi-plugin-translate` changes that API in a future major, `blockToHtml` / `htmlToBlock` need to be re-checked.
+Works with `strapi-plugin-translate` v1.x (Strapi 4) **and** v2.x (Strapi 5) — `peerDependency: "^1.4.0 || ^2.0.0-next.4"`. The `strapi.plugin('translate').service('format')` surface (`blockToHtml` / `htmlToBlock` / `markdownToHtml` / `htmlToMarkdown`) and the provider contract (`init() → { translate, usage }`) are identical across the plugin's v1.x and v2.x lines (verified against `2.0.0-next.4`), so the provider runs unchanged on both. The v2 line is a prerelease today — re-check this surface (and re-run an end-to-end translate) if the host plugin changes it in a future major.
 
 ## Local testing
 
