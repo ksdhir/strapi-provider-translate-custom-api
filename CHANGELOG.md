@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Strapi 5 support via `strapi-plugin-translate` v2.** Broadened the `peerDependencies` range from
+  `strapi-plugin-translate ^1.4.0` to `^1.4.0 || ^2.0.0-next.4`, so the same provider build works on both
+  Strapi 4 (plugin v1.x) and Strapi 5 (plugin v2.x). The provider's only host coupling — the `format`
+  service surface (`blockToHtml` / `htmlToBlock` / `markdownToHtml` / `htmlToMarkdown`) and the provider
+  contract (`init() → { translate, usage }`) — is identical in the plugin's v1.x and v2.x lines (verified
+  against `strapi-plugin-translate@2.0.0-next.4`), so **no runtime code changed**. Broadening the peer
+  range is additive → non-breaking (ships as a **minor**). Note: the plugin's v2 line is a prerelease
+  (`2.0.0-next.x`) — run an end-to-end translate against a real Strapi 5 instance before production.
 - **GitHub Actions CI workflow** ([#29](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/29)). `.github/workflows/ci.yml` runs `npm ci && npm test` on Node 18 / 20 / 22 for every push and pull request against `main`. PRs now show a CI status check before merge.
 - **Prettier check in CI** ([#31](https://github.com/ksdhir/strapi-provider-translate-custom-api/issues/31)). Separate job runs `npx prettier@3 --check .` so a formatting drift breaks the build. Configured via `.prettierrc.json` (`printWidth: 100`, double quotes, semicolons, `trailingComma: "es5"`) and `.prettierignore` (lockfile, `.claude/` tooling, `CHANGELOG.md`). Prettier itself is not added to `devDependencies` — `npx` fetches a pinned version on demand to keep the lockfile small.
 
