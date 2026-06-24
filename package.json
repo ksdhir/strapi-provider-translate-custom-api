@@ -1,6 +1,6 @@
 {
   "name": "strapi-provider-translate-custom-api",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Custom HTTP-endpoint translation provider for strapi-plugin-translate. Route translation requests through any URL you control instead of being locked into DeepL/Google/ChatGPT.",
   "main": "index.js",
   "files": [
